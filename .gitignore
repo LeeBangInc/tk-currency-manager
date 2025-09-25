@@ -1,0 +1,27 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Dependencies / builds
+node_modules/
+vendor/
+composer.lock
+dist/
+coverage/
+
+# Archives / logs / maps
+*.zip
+*.tar.gz
+*.log
+*.map
+
+# Env
+.env
+
+# WordPress.org working dir (if used)
+.wp-org/
+

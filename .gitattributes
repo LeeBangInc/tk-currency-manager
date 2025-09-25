@@ -1,0 +1,14 @@
+* text=auto eol=lf
+
+# Binary files / diffs
+languages/*.mo -diff
+*.min.js -diff
+*.min.css -diff
+
+# Exclude dev files from exported archives
+README.md export-ignore
+CHANGELOG.md export-ignore
+bin/ export-ignore
+.github/ export-ignore
+.* export-ignore
+
