@@ -1,0 +1,7 @@
+.tkcm-list { display: table; }
+.tkcm-row { display: table-row; }
+.tkcm-row > div { display: table-cell; padding: 6px 8px; vertical-align: middle; }
+.tkcm-head { font-weight: bold; }
+.tkcm-drag { cursor: move; font-size: 28px; color: #437E02; width: 24px; }
+.tkcm-remove { display: inline-block; width: 18px; height: 18px; line-height: 16px; text-align: center; background: #ea2c56; color: #fff; text-decoration: none; border-radius: 2px; }
+

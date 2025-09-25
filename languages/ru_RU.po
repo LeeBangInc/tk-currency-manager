@@ -1,0 +1,82 @@
+# TK Currency Manager for WooCommerce - Russian translations
+msgid ""
+msgstr ""
+"Project-Id-Version: tk-currency-manager 0.1.0\n"
+"POT-Creation-Date: 2025-09-25 00:00+0000\n"
+"PO-Revision-Date: 2025-09-25 00:00+0000\n"
+"Language: ru_RU\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: CodexCLI\n"
+"X-Domain: tk-currency-manager\n"
+
+#: admin menu
+msgid "Currencies"
+msgstr "Валюты"
+
+msgid "Currencies (TK)"
+msgstr "Валюты (TK)"
+
+msgid "You do not have permission to access this page."
+msgstr "У вас нет прав доступа к этой странице."
+
+msgid "Settings saved"
+msgstr "Настройки сохранены"
+
+msgid "Please fill all required fields; \"Rate\" must be a number with dot as a decimal separator."
+msgstr "Пожалуйста, заполните все обязательные поля; «Курс» должен быть числом с точкой в качестве десятичного разделителя."
+
+msgid "WooCommerce is not active."
+msgstr "WooCommerce не активен."
+
+msgid "Products recalculated: %d"
+msgstr "Пересчитано товаров: %d"
+
+msgid "Manage Currencies"
+msgstr "Управление валютами"
+
+msgid "The first currency in the list acts as default when a product has no specific currency set. You can also use a custom \"currency\" as a markup/discount coefficient."
+msgstr "Первая валюта в списке применяется по умолчанию, если у товара валюта не задана. Также можно использовать пользовательскую «валюту» как коэффициент наценки/скидки."
+
+msgid "Code"
+msgstr "Код"
+
+msgid "Rate"
+msgstr "Курс"
+
+msgid "Description"
+msgstr "Описание"
+
+msgid "Add currency"
+msgstr "Добавить валюту"
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Recalculate prices"
+msgstr "Пересчитать цены"
+
+msgid "Currency"
+msgstr "Валюта"
+
+msgid "Currency of the input price"
+msgstr "Валюта, в которой указана цена"
+
+msgid "Price in currency"
+msgstr "Цена в валюте"
+
+msgid "Sale price in currency"
+msgstr "Акционная цена в валюте"
+
+msgid "TK Currency Manager requires WooCommerce to be active."
+msgstr "Для работы TK Currency Manager требуется активный WooCommerce."
+
+msgid "Rate must be greater than zero."
+msgstr "Курс должен быть больше нуля."
+
+msgid "Rate must be a valid decimal number (dot as decimal separator)."
+msgstr "Курс должен быть корректным десятичным числом (с точкой как разделителем)."
+
+msgid "Tip: drag rows to reorder; the first item becomes the default currency."
+msgstr "Подсказка: перетягивайте строки для сортировки; первая валюта станет валютой по умолчанию."

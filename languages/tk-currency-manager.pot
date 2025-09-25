@@ -1,0 +1,79 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: tk-currency-manager 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-25 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: tk-currency-manager\n"
+
+#. Admin menu labels
+msgid "Currencies"
+msgstr ""
+
+msgid "Currencies (TK)"
+msgstr ""
+
+#. Generic admin notices
+msgid "You do not have permission to access this page."
+msgstr ""
+
+msgid "Settings saved"
+msgstr ""
+
+msgid "Please fill all required fields; \"Rate\" must be a number with dot as a decimal separator."
+msgstr ""
+
+msgid "WooCommerce is not active."
+msgstr ""
+
+msgid "Products recalculated: %d"
+msgstr ""
+
+#. Settings page
+msgid "Manage Currencies"
+msgstr ""
+
+msgid "The first currency in the list acts as default when a product has no specific currency set. You can also use a custom \"currency\" as a markup/discount coefficient."
+msgstr ""
+
+msgid "Code"
+msgstr ""
+
+msgid "Rate"
+msgstr ""
+
+msgid "Description"
+msgstr ""
+
+msgid "Add currency"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Recalculate prices"
+msgstr ""
+
+#. Product meta fields
+msgid "Currency"
+msgstr ""
+
+msgid "Currency of the input price"
+msgstr ""
+
+msgid "Price in currency"
+msgstr ""
+
+msgid "Sale price in currency"
+msgstr ""
+
+msgid "Rate must be greater than zero."
+msgstr ""
+
+msgid "Rate must be a valid decimal number (dot as decimal separator)."
+msgstr ""
+
+msgid "Tip: drag rows to reorder; the first item becomes the default currency."
+msgstr ""
