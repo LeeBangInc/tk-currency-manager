@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] — Unreleased
+## [0.2.0] — 2026-10-24
 
 ### Fixed
 
@@ -19,7 +19,7 @@
 - Separate validation/pricing and protected admin handlers from the bootstrap/UI.
 - Document conversion rules, migration, limitations, data retention and the actual verification matrix; add screenshots from a synthetic store.
 - Package from an explicit allowlist; retain the `bin/build-zip.sh` entrypoint as a wrapper.
-- Add standalone checks, disposable-store integration tests and GitHub Actions configuration. Remote CI has not run before publication.
+- Add standalone checks, disposable-store integration tests and GitHub Actions configuration. GitHub Actions checks passed on the pull request.
 
 ### Verification — 2026-10-24
 
@@ -28,7 +28,7 @@
 - WordPress 6.8.3 / WooCommerce 10.3.5 / PHP 8.3.33: the same 63 checks with each order.
 - Integration covers CRUD prices, sale clearing/scheduling/expiry, lookup tables, variations and parent ranges, cart totals, batch boundaries, HTTP settings/AJAX, permissions/nonces and uninstall retention.
 - Browser check: add and save a comma-decimal rate; run two AJAX batches over 53 synthetic products (52 updated, 1 skipped, 0 errors), without console errors/warnings. No live store or payment gateway was used.
-- JavaScript/shell syntax and installable ZIP contents checked locally. CI configuration is ready for the first push.
+- JavaScript/shell syntax and installable ZIP contents checked locally. The PHP and WordPress/WooCommerce matrix also passed on GitHub Actions (runner PHP 8.3.36 for integrations).
 
 ## [0.1.0] — 2024-09-25
 

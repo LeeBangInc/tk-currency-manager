@@ -39,8 +39,8 @@ Screenshots use an isolated demo store with synthetic products; coefficients are
 
 Requires WordPress 6.0+, PHP 7.4+ and an active WooCommerce installation. See [verification](#verification) for the combinations actually tested.
 
-1. Clone this repository and run `bash bin/build.sh` to build an installable ZIP.
-2. Upload the generated `dist/tk-currency-manager-0.2.0.zip` through **Plugins → Add New → Upload Plugin**, or copy the plugin into `wp-content/plugins/tk-currency-manager`.
+1. Download the [installable ZIP](https://github.com/LeeBangInc/tk-currency-manager/releases/download/v0.2.0/tk-currency-manager-0.2.0.zip), or clone this repository and run `bash bin/build.sh`.
+2. Upload `tk-currency-manager-0.2.0.zip` through **Plugins → Add New → Upload Plugin**, or copy the plugin into `wp-content/plugins/tk-currency-manager`.
 3. Activate WooCommerce, then **TK Currency Manager for WooCommerce**.
 4. Configure currencies before entering source prices.
 
