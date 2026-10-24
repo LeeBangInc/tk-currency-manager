@@ -2,40 +2,52 @@
 Contributors: tk
 Tags: woocommerce, currency, pricing
 Requires at least: 6.0
-Tested up to: 6.6
+Tested up to: 7.1
 Requires PHP: 7.4
+Requires Plugins: woocommerce
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
+Maintain source-currency prices and convert them into the WooCommerce store currency.
+
 == Description ==
 
-Define currencies with coefficients, set product prices in a chosen currency, and recalculate WooCommerce prices.
+Define currency coefficients under WooCommerce → Currencies (TK). Set source regular and optional sale prices on simple products or individual variations. Save to recalculate, or use the admin bulk tool / `wp tk-currency recalc` after changing rates.
 
-= Features =
-* Admin page under WooCommerce → Currencies (TK) to manage currencies (code, rate, description) with drag & drop order.
-* Product meta (General tab): currency selector, price and sale price in that currency.
-* Price recalculation on product save and bulk tool.
-* WP‑CLI: `wp tk-currency recalc`.
-* Safe: capability checks, nonce, sanitized inputs; loads admin JS/CSS only on its page.
-* i18n: English source, Russian and Ukrainian translations bundled.
+The plugin writes normal WooCommerce prices through CRUD. It does not provide customer currency switching, automatic exchange-rate feeds or multi-currency checkout.
+
+* Empty source regular price opts out and preserves store prices; zero is an intentional free price.
+* Empty currency uses the first configured rate; unknown named currencies cause an error.
+* Invalid prices/rates are rejected. Empty source sale price clears the managed sale price.
+* Bulk admin requests process 50 catalog records with updated/skipped/error counts.
+* Uninstall retains shared legacy settings, source metadata and converted prices.
 
 == Installation ==
-1. Upload `tk-currency-manager` to the `/wp-content/plugins/` directory.
-2. Activate the plugin through the 'Plugins' screen in WordPress.
-3. Go to WooCommerce → Currencies (TK) to add currencies.
-4. Edit products: set Currency, Price in currency, and (optional) Sale price in currency.
-5. Use the recalc button or WP‑CLI to bulk update prices when rates change.
+1. Upload the plugin ZIP or copy tk-currency-manager into wp-content/plugins.
+2. Activate WooCommerce and this plugin.
+3. Configure currencies before entering source prices.
+4. Test on staging and back up the database before bulk price updates.
 
-== Screenshots ==
-1. Currency settings page
-2. Product meta fields
+== Frequently Asked Questions ==
+
+= Are variations supported? =
+Yes, each variation has independent source fields. Variable parent price ranges are synchronized; source fields are not inherited. Grouped, external and custom product types are skipped.
+
+= Can a bulk run be interrupted? =
+Yes. Earlier updates remain saved; rerun after correcting errors. Keep the admin page open and avoid concurrent catalog/rate changes. Use WP-CLI for large catalogs. The run is not transactional.
+
+= What happens to legacy data on uninstall? =
+Nothing is deleted. Options teplo_klimat_currency_params / teplo_klimat_num_elements and metadata tk_currency / tk_curr_price / tk_curr_sale are retained. Remove conflicting old theme pricing hooks when migrating.
 
 == Changelog ==
+= 0.2.0 =
+* Preserve prices of unmanaged products and variations.
+* Register product hooks independently of WooCommerce file load order.
+* Validate source decimals, rates, duplicate codes and unknown currencies.
+* Protect form saves and process bulk requests in bounded batches.
+* Synchronize variation ranges; clear expired source sales; retain data on uninstall.
+* Add regression/integration checks and update documentation.
+
 = 0.1.0 =
 * Initial public release.
-
-== Variation Pricing ==
-* Variation rows include the same meta: Currency, Price in currency, Sale price in currency.
-* Saving the product recalculates variations that have these fields set.
-* Bulk recalc updates all variations as well.
-* Note: empty variation fields are not inherited from parent by default.

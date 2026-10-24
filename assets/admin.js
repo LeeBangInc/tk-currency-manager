@@ -25,9 +25,47 @@
     $('#tkcm-add-currency').on('click', function(e){
       e.preventDefault();
       var $clone = $template.clone();
-      $clone.find('.tkcm-remove').on('click', function(e){ e.preventDefault(); $clone.remove(); reindex(); });
       $list.append($clone);
       reindex();
+    });
+
+    $('#tkcm-recalculate').on('click', function(){
+      var $button = $(this).prop('disabled', true);
+      var $status = $('#tkcm-recalculate-status').empty();
+      var totals = {updated: 0, skipped: 0, errors: 0};
+      var messages = [];
+      var page = 1;
+
+      function render(suffix) {
+        var summary = tkcmAdmin.progress
+          .replace('%1$d', totals.updated)
+          .replace('%2$d', totals.skipped)
+          .replace('%3$d', totals.errors);
+        $status.empty().append($('<p>').text(summary + ' ' + suffix));
+        messages.forEach(function(message){ $status.append($('<p>').text(message)); });
+      }
+
+      function next() {
+        $.post(ajaxurl, {action: 'tkcm_recalculate', nonce: tkcmAdmin.nonce, page: page})
+          .done(function(response){
+            if (!response.success) {
+              render(tkcmAdmin.failed);
+              $button.prop('disabled', false);
+              return;
+            }
+            ['updated', 'skipped', 'errors'].forEach(function(key){ totals[key] += response.data[key]; });
+            messages = messages.concat(response.data.messages).slice(0, 10);
+            render(response.data.done ? tkcmAdmin.complete : '');
+            if (response.data.done) {
+              $button.prop('disabled', false);
+            } else {
+              page++;
+              next();
+            }
+          })
+          .fail(function(){ render(tkcmAdmin.failed); $button.prop('disabled', false); });
+      }
+      next();
     });
 
     $list.on('click', '.tkcm-remove', function(e){

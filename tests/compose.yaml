@@ -1,0 +1,42 @@
+name: tkcm-tests
+services:
+  db:
+    image: mariadb:11.8
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: test-only
+      MARIADB_RANDOM_ROOT_PASSWORD: '1'
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 2s
+      timeout: 5s
+      retries: 45
+    volumes:
+      - db:/var/lib/mysql
+  wordpress:
+    image: wordpress:php8.3-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1::80'
+    environment: &wp-env
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: test-only
+      WORDPRESS_DB_NAME: wordpress
+      WP_CLI_CACHE_DIR: /tmp/wp-cli-cache
+    volumes: &wp-volumes
+      - wp:/var/www/html
+      - ../:/var/www/html/wp-content/plugins/tk-currency-manager:ro
+  cli:
+    image: wordpress:cli-php8.3
+    user: '33:33'
+    depends_on:
+      - wordpress
+    environment: *wp-env
+    volumes: *wp-volumes
+volumes:
+  db:
+  wp:

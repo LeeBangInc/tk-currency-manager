@@ -1,10 +1,8 @@
 <?php
-// If uninstall not called from WordPress, then exit.
 if (!defined('WP_UNINSTALL_PLUGIN')) {
     exit;
 }
 
-// Options used by the plugin
-delete_option('teplo_klimat_currency_params');
-delete_option('teplo_klimat_num_elements');
-
+// These keys are shared with legacy theme code. Preserve them, product source
+// metadata and the last calculated WooCommerce prices on uninstall. Removal is
+// an explicit store migration, not a side effect of deleting this plugin.

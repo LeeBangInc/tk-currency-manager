@@ -2,7 +2,11 @@
 /**
  * Plugin Name: TK Currency Manager for WooCommerce
  * Description: Currency-based pricing helper: define currencies with coefficients, set product prices in a chosen currency, and recalculate WooCommerce prices.
- * Version: 0.1.0
+ * Version: 0.2.0
+ * Requires at least: 6.0
+ * Requires PHP: 7.4
+ * Requires Plugins: woocommerce
+ * License: GPL-2.0-or-later
  * Author: TK
  * Text Domain: tk-currency-manager
  * Domain Path: /languages
@@ -13,7 +17,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constants
-define('TKCM_VERSION', '0.1.0');
+define('TKCM_VERSION', '0.2.0');
 define('TKCM_PLUGIN_FILE', __FILE__);
 define('TKCM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('TKCM_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -22,13 +26,16 @@ define('TKCM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('TKCM_OPT_CURRENCIES', 'teplo_klimat_currency_params');
 define('TKCM_OPT_COUNT', 'teplo_klimat_num_elements');
 
+require_once TKCM_PLUGIN_DIR . 'includes/pricing.php';
+require_once TKCM_PLUGIN_DIR . 'includes/product-admin.php';
+
 // Helper: check if WooCommerce is active
 function tkcm_wc_active() {
     return class_exists('WooCommerce');
 }
 
 // Load textdomain
-add_action('plugins_loaded', function () {
+add_action('init', function () {
     load_plugin_textdomain('tk-currency-manager', false, dirname(plugin_basename(__FILE__)) . '/languages');
 });
 
@@ -62,6 +69,12 @@ add_action('admin_enqueue_scripts', function ($hook) {
         $js_ver  = file_exists($js_file) ? filemtime($js_file) : TKCM_VERSION;
         wp_enqueue_style('tkcm-admin', TKCM_PLUGIN_URL . 'assets/admin.css', [], $css_ver);
         wp_enqueue_script('tkcm-admin', TKCM_PLUGIN_URL . 'assets/admin.js', ['jquery', 'jquery-ui-sortable'], $js_ver, true);
+        wp_localize_script('tkcm-admin', 'tkcmAdmin', [
+            'nonce' => wp_create_nonce('tkcm_recalculate'),
+            'progress' => __('Updated: %1$d; skipped: %2$d; errors: %3$d.', 'tk-currency-manager'),
+            'complete' => __('Recalculation complete.', 'tk-currency-manager'),
+            'failed' => __('Request failed. Some prices may already be updated. Fix the problem and run again.', 'tk-currency-manager'),
+        ]);
     }
 });
 
@@ -91,66 +104,31 @@ function tkcm_render_settings_page()
         // Save form
         if (isset($_POST['tkcm_action']) && $_POST['tkcm_action'] === 'save') {
             $max_id = isset($_POST['element-max-id']) ? absint($_POST['element-max-id']) : 0;
-            $new = [];
-            $error_code = '';
+            $rows = [];
+            // Reject malformed/truncated tables rather than replacing settings partially.
+            $valid_size = $max_id <= 200 && isset($_POST['element-max-id']) && is_string($_POST['element-max-id']) && ctype_digit($_POST['element-max-id']);
+            $max_id = min($max_id, 200);
             for ($i = 0; $i < $max_id; $i++) {
-                $name = isset($_POST["cur-name-id-$i"]) ? sanitize_text_field(wp_unslash($_POST["cur-name-id-$i"])) : '';
-                $val = isset($_POST["cur-val-id-$i"]) ? wp_unslash($_POST["cur-val-id-$i"]) : '';
-                $desc = isset($_POST["cur-desc-id-$i"]) ? sanitize_text_field(wp_unslash($_POST["cur-desc-id-$i"])) : '';
-
-                if ($name === '' && $val === '' && $desc === '') {
-                    continue; // skip empty row
+                $row = [];
+                foreach (['name', 'val', 'desc'] as $key) {
+                    $field = "cur-$key-id-$i";
+                    $row[$key] = isset($_POST[$field]) && is_string($_POST[$field]) ? wp_unslash($_POST[$field]) : null;
                 }
-
-                // normalize: allow comma input, save with dot; require > 0
-                $val_clean = str_replace(',', '.', trim((string)$val));
-                if ($name === '' || $val_clean === '') {
-                    $error_code = 'empty';
-                } elseif (!preg_match('/^\d*(?:\.\d+)?$/', $val_clean)) {
-                    $error_code = 'format';
-                } else {
-                    $num = (float) $val_clean;
-                    if ($num <= 0) {
-                        $error_code = 'non_positive';
-                    } else {
-                        // round to 6 decimals for financial stability
-                        $val_clean = rtrim(rtrim(number_format($num, 6, '.', ''), '0'), '.');
-                    }
-                }
-
-                $new[] = [
-                    'name' => $name,
-                    'val' => $val_clean,
-                    'desc' => $desc,
-                ];
+                $rows[] = $row;
             }
-
-            if ($error_code === '') {
+            $new = $valid_size ? tkcm_validate_currencies($rows) : new WP_Error('tkcm_rows', __('Invalid table size (maximum 200 currencies).', 'tk-currency-manager'));
+            if (!is_wp_error($new)) {
                 update_option(TKCM_OPT_CURRENCIES, $new);
                 update_option(TKCM_OPT_COUNT, count($new));
                 $currencies = $new;
                 $num_elements = count($new);
                 echo '<div class="updated"><p>' . esc_html__('Settings saved', 'tk-currency-manager') . '</p></div>';
             } else {
-                $msg = esc_html__('Please fill all required fields; "Rate" must be a number with dot as a decimal separator.', 'tk-currency-manager');
-                if ($error_code === 'non_positive') {
-                    $msg = esc_html__('Rate must be greater than zero.', 'tk-currency-manager');
-                } elseif ($error_code === 'format') {
-                    $msg = esc_html__('Rate must be a valid decimal number (dot as decimal separator).', 'tk-currency-manager');
-                }
+                $msg = esc_html($new->get_error_message());
                 echo '<div class="error"><p>' . $msg . '</p></div>';
             }
         }
 
-        // Bulk recalc
-        if (isset($_POST['tkcm_action']) && $_POST['tkcm_action'] === 'recalc') {
-            if (!class_exists('WooCommerce')) {
-                echo '<div class="error"><p>' . esc_html__('WooCommerce is not active.', 'tk-currency-manager') . '</p></div>';
-            } else {
-                $count = tkcm_recalculate_all_products();
-                echo '<div class="updated"><p>' . sprintf(esc_html__('Products recalculated: %d', 'tk-currency-manager'), (int) $count) . '</p></div>';
-            }
-        }
     }
 
     // Re-read after potential save
@@ -177,10 +155,10 @@ function tkcm_render_settings_page()
                 <?php $i = 0; if (!empty($currencies) && is_array($currencies)) : foreach ($currencies as $c) : ?>
                     <li class="tkcm-row" id="tkcm-row-<?php echo (int)$i; ?>">
                         <div class="tkcm-drag">&#8226;</div>
-                        <div><input type="text" name="cur-name-id-<?php echo (int)$i; ?>" value="<?php echo esc_attr($c['name']); ?>" size="5"></div>
-                        <div><input type="text" name="cur-val-id-<?php echo (int)$i; ?>" value="<?php echo esc_attr($c['val']); ?>"></div>
-                        <div><input type="text" name="cur-desc-id-<?php echo (int)$i; ?>" value="<?php echo esc_attr($c['desc']); ?>"></div>
-                        <div><a href="#" class="tkcm-remove">×</a></div>
+                        <div><input type="text" aria-label="<?php esc_attr_e('Currency code', 'tk-currency-manager'); ?>" name="cur-name-id-<?php echo (int)$i; ?>" value="<?php echo esc_attr($c['name']); ?>" size="5"></div>
+                        <div><input type="text" aria-label="<?php esc_attr_e('Conversion rate', 'tk-currency-manager'); ?>" name="cur-val-id-<?php echo (int)$i; ?>" value="<?php echo esc_attr($c['val']); ?>"></div>
+                        <div><input type="text" aria-label="<?php esc_attr_e('Currency description', 'tk-currency-manager'); ?>" name="cur-desc-id-<?php echo (int)$i; ?>" value="<?php echo esc_attr($c['desc']); ?>"></div>
+                        <div><a href="#" class="tkcm-remove" aria-label="<?php esc_attr_e('Remove currency', 'tk-currency-manager'); ?>">×</a></div>
                     </li>
                 <?php $i++; endforeach; endif; ?>
             </ul>
@@ -193,19 +171,18 @@ function tkcm_render_settings_page()
             </p>
         </form>
 
-        <form method="post" style="margin-top: 20px;">
-            <?php wp_nonce_field('tkcm_save_settings', 'tkcm_nonce'); ?>
-            <input type="hidden" name="tkcm_action" value="recalc" />
-            <button type="submit" class="button"><?php esc_html_e('Recalculate prices', 'tk-currency-manager'); ?></button>
-        </form>
+        <p><button type="button" id="tkcm-recalculate" class="button"><?php esc_html_e('Recalculate prices', 'tk-currency-manager'); ?></button></p>
+        <p><?php esc_html_e('Processes 50 catalog records per request. Keep this page open; do not change the catalog or rates during a run.', 'tk-currency-manager'); ?></p>
+        <noscript><?php esc_html_e('JavaScript is required for bulk recalculation. Alternatively use: wp tk-currency recalc', 'tk-currency-manager'); ?></noscript>
+        <div id="tkcm-recalculate-status" role="status" aria-live="polite"></div>
 
         <ul id="tkcm-row-template" class="tkcm-list" style="display:none;">
             <li class="tkcm-row">
                 <div class="tkcm-drag">&#8226;</div>
-                <div><input type="text" name="cur-name-id" value="" size="5"></div>
-                <div><input type="text" name="cur-val-id" value=""></div>
-                <div><input type="text" name="cur-desc-id" value=""></div>
-                <div><a href="#" class="tkcm-remove">×</a></div>
+                <div><input type="text" aria-label="<?php esc_attr_e('Currency code', 'tk-currency-manager'); ?>" name="cur-name-id" value="" size="5"></div>
+                <div><input type="text" aria-label="<?php esc_attr_e('Conversion rate', 'tk-currency-manager'); ?>" name="cur-val-id" value=""></div>
+                <div><input type="text" aria-label="<?php esc_attr_e('Currency description', 'tk-currency-manager'); ?>" name="cur-desc-id" value=""></div>
+                <div><a href="#" class="tkcm-remove" aria-label="<?php esc_attr_e('Remove currency', 'tk-currency-manager'); ?>">×</a></div>
             </li>
         </ul>
     </div>
@@ -213,10 +190,13 @@ function tkcm_render_settings_page()
 }
 
 // Product: add fields to General tab (avoid duplicate if legacy theme function exists)
-if (tkcm_wc_active() && !function_exists('woo_add_custom_general_fields')) {
 add_action('woocommerce_product_options_general_product_data', function () {
+    wp_nonce_field('tkcm_product_fields', 'tkcm_product_nonce');
+    if (function_exists('woo_add_custom_general_fields')) {
+        return;
+    }
     $currencies = get_option(TKCM_OPT_CURRENCIES, []);
-    $options = [];
+    $options = ['' => __('Default (first configured currency)', 'tk-currency-manager')];
     if (!empty($currencies) && is_array($currencies)) {
         foreach ($currencies as $c) {
             if (!empty($c['name'])) {
@@ -225,7 +205,12 @@ add_action('woocommerce_product_options_general_product_data', function () {
         }
     }
 
-    echo '<div class="options_group">';
+    global $post;
+    $selected = $post ? get_post_meta($post->ID, 'tk_currency', true) : '';
+    if (is_string($selected) && $selected !== '' && !isset($options[$selected])) {
+        $options[$selected] = sprintf(__('%s (not configured)', 'tk-currency-manager'), $selected);
+    }
+    echo '<div class="options_group show_if_simple">';
     woocommerce_wp_select([
         'id' => 'tk_currency',
         'label' => __('Currency', 'tk-currency-manager'),
@@ -237,6 +222,8 @@ add_action('woocommerce_product_options_general_product_data', function () {
     woocommerce_wp_text_input([
         'id' => 'tk_curr_price',
         'label' => __('Price in currency', 'tk-currency-manager'),
+        'description' => __('Empty: keep store prices. Zero: free product.', 'tk-currency-manager'),
+        'desc_tip' => true,
         'placeholder' => '0',
         'type' => 'text',
     ]);
@@ -249,54 +236,11 @@ add_action('woocommerce_product_options_general_product_data', function () {
     ]);
     echo '</div>';
 });
-}
-
-// Save product fields
-if (tkcm_wc_active()) add_action('woocommerce_process_product_meta', function ($post_id) {
-    if (!current_user_can('edit_product', $post_id)) {
-        return;
-    }
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-        return;
-    }
-    if (wp_is_post_revision($post_id)) {
-        return;
-    }
-
-    $map = [
-        'tk_currency' => ['sanitize' => 'sanitize_text_field'],
-        'tk_curr_price' => ['sanitize' => 'tkcm_sanitize_decimal'],
-        'tk_curr_sale' => ['sanitize' => 'tkcm_sanitize_decimal_allow_empty'],
-    ];
-    foreach ($map as $key => $rules) {
-        if (isset($_POST[$key])) {
-            $raw = wp_unslash($_POST[$key]);
-            $val = call_user_func($rules['sanitize'], $raw);
-            update_post_meta($post_id, $key, $val);
-        }
-    }
-
-    // Recalculate prices for this product
-    tkcm_recalculate_product($post_id);
-});
-
-function tkcm_sanitize_decimal($val)
-{
-    $val = str_replace(',', '.', trim((string)$val));
-    if ($val === '') return '';
-    return preg_replace('/[^0-9\.]/', '', $val);
-}
-
-function tkcm_sanitize_decimal_allow_empty($val)
-{
-    $v = tkcm_sanitize_decimal($val);
-    return $v; // empty string allowed
-}
 
 // Variation fields: add meta inputs per variation
-if (tkcm_wc_active()) add_action('woocommerce_product_after_variable_attributes', function($loop, $variation_data, $variation){
+add_action('woocommerce_product_after_variable_attributes', function($loop, $variation_data, $variation){
     $currencies = get_option(TKCM_OPT_CURRENCIES, []);
-    $options = [];
+    $options = ['' => __('Default (first configured currency)', 'tk-currency-manager')];
     if (!empty($currencies) && is_array($currencies)) {
         foreach ($currencies as $c) {
             if (!empty($c['name'])) {
@@ -304,11 +248,15 @@ if (tkcm_wc_active()) add_action('woocommerce_product_after_variable_attributes'
             }
         }
     }
+    echo '<input type="hidden" name="tkcm_product_nonce" value="' . esc_attr(wp_create_nonce('tkcm_product_fields')) . '" />';
     $var_id = $variation->ID;
     $val_currency = get_post_meta($var_id, 'tk_currency', true);
     $val_price = get_post_meta($var_id, 'tk_curr_price', true);
     $val_sale = get_post_meta($var_id, 'tk_curr_sale', true);
 
+    if (is_string($val_currency) && $val_currency !== '' && !isset($options[$val_currency])) {
+        $options[$val_currency] = sprintf(__('%s (not configured)', 'tk-currency-manager'), $val_currency);
+    }
     echo '<div class="form-row form-row-full">';
     woocommerce_wp_select([
         'id' => "tk_currency[{$loop}]",
@@ -324,6 +272,8 @@ if (tkcm_wc_active()) add_action('woocommerce_product_after_variable_attributes'
         'name' => "tk_curr_price[{$loop}]",
         'value' => $val_price,
         'label' => __('Price in currency', 'tk-currency-manager'),
+        'description' => __('Empty: keep store prices. Zero: free product.', 'tk-currency-manager'),
+        'desc_tip' => true,
         'placeholder' => '0',
         'type' => 'text',
     ]);
@@ -338,114 +288,19 @@ if (tkcm_wc_active()) add_action('woocommerce_product_after_variable_attributes'
     echo '</div>';
 }, 10, 3);
 
-// Save variation fields and recalc
-if (tkcm_wc_active()) add_action('woocommerce_save_product_variation', function($variation_id, $i){
-    $map = [
-        'tk_currency' => ['sanitize' => 'sanitize_text_field'],
-        'tk_curr_price' => ['sanitize' => 'tkcm_sanitize_decimal'],
-        'tk_curr_sale' => ['sanitize' => 'tkcm_sanitize_decimal_allow_empty'],
-    ];
-    foreach ($map as $key => $rules) {
-        if (isset($_POST[$key]) && isset($_POST[$key][$i])) {
-            $raw = wp_unslash($_POST[$key][$i]);
-            $val = call_user_func($rules['sanitize'], $raw);
-            update_post_meta($variation_id, $key, $val);
-        }
-    }
-    tkcm_recalculate_product($variation_id);
-}, 10, 2);
-
-// Recalc all products helper
-function tkcm_recalculate_all_products()
-{
-    $paged = 1; $pp = 200; $count = 0;
-    do {
-        $q = new WP_Query([
-            'post_type' => 'product',
-            'post_status' => 'any',
-            'fields' => 'ids',
-            'posts_per_page' => $pp,
-            'paged' => $paged,
-        ]);
-        if (!$q->have_posts()) { wp_reset_postdata(); break; }
-        foreach ($q->posts as $pid) {
-            tkcm_recalculate_product($pid);
-            $count++;
-        }
-        wp_reset_postdata();
-        $paged++;
-    } while (true);
-    return $count;
-}
-
-// Recalculate prices for a single product using current currency setup
-function tkcm_recalculate_product($post_id)
-{
-    if (!class_exists('WooCommerce')) {
-        return;
-    }
-    $product = wc_get_product($post_id);
-    if (!$product) {
-        return;
-    }
-
-    $compute_and_set = function($prod_id) {
-        $regular_in_cur = get_post_meta($prod_id, 'tk_curr_price', true);
-        $sale_in_cur = get_post_meta($prod_id, 'tk_curr_sale', true);
-        $currency = get_post_meta($prod_id, 'tk_currency', true);
-
-        $currencies = get_option(TKCM_OPT_CURRENCIES, []);
-        $coef = 1.0;
-        if (!empty($currencies) && is_array($currencies)) {
-            $coef = isset($currencies[0]['val']) && $currencies[0]['val'] !== '' ? (float)$currencies[0]['val'] : 1.0;
-            foreach ($currencies as $c) {
-                if ($currency !== '' && isset($c['name']) && $currency === $c['name']) {
-                    $coef = (float)$c['val'];
-                    break;
-                }
+// Register only after all active plugins have loaded, including WooCommerce.
+add_action('plugins_loaded', function () {
+    if (defined('WP_CLI') && WP_CLI && tkcm_wc_active()) {
+        WP_CLI::add_command('tk-currency recalc', function () {
+            $result = tkcm_recalculate_all_products();
+            foreach ($result['messages'] as $message) {
+                WP_CLI::warning($message);
             }
-        }
-
-        $dec = function_exists('wc_get_price_decimals') ? wc_get_price_decimals() : 2;
-        $regular_price = wc_format_decimal( (float)$regular_in_cur * (float)$coef, $dec );
-        $sale_price = ($sale_in_cur === '' ? '' : wc_format_decimal( (float)$sale_in_cur * (float)$coef, $dec ));
-
-        $p = wc_get_product($prod_id);
-        if ($p) {
-            $p->set_regular_price($regular_price);
-            $p->set_sale_price($sale_price === '' ? '' : $sale_price);
-            $p->save();
-        }
-    };
-
-    if ($product->is_type('variation')) {
-        $parent_id = $product->get_parent_id();
-        $compute_and_set($post_id);
-        if ($parent_id) {
-            wc_delete_product_transients($parent_id);
-        }
-        return;
+            $summary = sprintf('Updated: %d; skipped: %d; errors: %d.', $result['updated'], $result['skipped'], $result['errors']);
+            if ($result['errors']) {
+                WP_CLI::error($summary);
+            }
+            WP_CLI::success($summary);
+        });
     }
-
-    if ($product->is_type('variable')) {
-        $children = $product->get_children();
-        foreach ($children as $vid) {
-            $compute_and_set($vid);
-        }
-        wc_delete_product_transients($product->get_id());
-        return;
-    }
-
-    $compute_and_set($post_id);
-}
-
-// WP-CLI command: wp tk-currency recalc
-if (defined('WP_CLI') && WP_CLI && tkcm_wc_active()) {
-    WP_CLI::add_command('tk-currency recalc', function () {
-        $count = tkcm_recalculate_all_products();
-        WP_CLI::success(sprintf('Recalculated %d products', (int)$count));
-    });
-}
-
-// Front: ensure we do NOT modify catalog price HTML for coupons (limit to cart/checkout if ever needed)
-// Intentionally left out compared to old theme implementation.
+}, 20);
