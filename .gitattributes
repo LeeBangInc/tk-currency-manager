@@ -6,9 +6,11 @@ languages/*.mo -diff
 *.min.css -diff
 
 # Exclude dev files from exported archives
-README.md export-ignore
-CHANGELOG.md export-ignore
 bin/ export-ignore
 .github/ export-ignore
 .* export-ignore
 
+tests/ export-ignore
+
+# Keep screenshots in GitHub source archives; runtime ZIP uses bin/build.sh.
+*.png -diff
